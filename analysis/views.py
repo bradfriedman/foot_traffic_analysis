@@ -113,6 +113,9 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
       print("NO SHOPPING CENTERS FOUND")
       return AnalysisResult(
           f"No shopping center found with the name {shopping_center}. Please try again.")
+  else:
+    # If no shopping center was extracted, return an error message
+    return AnalysisResult("No shopping center could be extracted from the user query. Please try again.")
 
   city_names = set(
       FootTraffic.objects.values_list('city', flat=True)
