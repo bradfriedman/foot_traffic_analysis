@@ -5,7 +5,7 @@ from analysis.utils.enums import LLMChoice
 
 class UserQueryForm(forms.Form):
   query = forms.CharField(label='Enter your query', widget=forms.TextInput(
-      attrs={'style': 'width: 850px;'}), initial='Tell me about Skyview Plaza in Bch')
+      attrs={'style': 'width: 850px;'}), initial='Tell me about Skyview Plaza in Satellite Beach')
   llm_choices = [
       (LLMChoice.CHATGPT45.value, 'ChatGPT 4.5 Turbo'),
       (LLMChoice.CHATGPT35.value, 'ChatGPT 3.5 Turbo'),
