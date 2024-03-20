@@ -1,0 +1,92 @@
+{% load static %}
+{% load markdown_filter %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shopping Center Analysis</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+      <h1>Shopping Center Analysis</h1>
+    
+      <form method="POST" id="analyze-form">
+        {% csrf_token %}
+        <div>
+          {{ form.as_p }}
+        </div>
+        <button id="analyze-btn" type="submit">Analyze</button>
+        <span id="loading-text" style="display: none;">Please wait a moment...</span>
+      </form>
+      
+      {% if insights_summary %}
+      <div class="insights">
+        <p>{{ insights_summary|markdown }}</p>
+        <p><small><i>Generated using {{ llm_choice }}</i></small></p>
+      </div>
+      {% endif %}
+
+      {% if chart_data %}
+      <div class="chart-container">
+        <h2>Chart</h2>
+        <canvas id="chart"></canvas>
+      </div>
+      {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script>
+      window.onload = function() {
+        {% if chart_data %}
+        // Create the chart using Chart.js
+        const ctx = document.getElementById('chart').getContext('2d');
+        const myChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+              labels: {{ chart_labels|safe }},
+              datasets: [{
+                  label: 'Foot Traffic',
+                  data: {{ chart_data }},
+                  backgroundColor: 'rgba(203, 166, 247, 0.2)',
+                  borderColor: 'rgba(203, 166, 247, 1)',
+                  borderWidth: 1
+              }]
+          },
+          options: {
+              scales: {
+                  x: {
+                      type: 'time',
+                      time: {
+                          unit: 'month'
+                      }
+                  }
+              }
+          }
+      });
+      {% endif %}
+    }
+    </script>
+    <script>
+      const analyzeBtn = document.getElementById('analyze-btn');
+      const loadingText = document.getElementById('loading-text')
+      const analyzeForm = document.getElementById('analyze-form');
+
+      analyzeBtn.addEventListener('click', () => {
+          analyzeBtn.disabled = true;
+          analyzeBtn.textContent = 'Analyzing...';
+          loadingText.style.display = 'inline';
+          analyzeForm.submit();
+      });
+
+      analyzeForm.addEventListener('submit', () => {
+        setTimeout(() => {
+            loadingText.style.display = 'none';
+        }, 3000); // Hide the loading text after 3 seconds
+    });
+
+
+    </script>
+</body>
+</html>

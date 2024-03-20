@@ -1,0 +1,1 @@
+web: gunicorn foot_traffic_analysis.wsgi
