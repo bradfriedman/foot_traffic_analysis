@@ -29,7 +29,7 @@
 
       {% if chart_data %}
       <div class="chart-container">
-        <h2>Chart</h2>
+        <h2>Daily Averages By Month</h2>
         <canvas id="chart"></canvas>
       </div>
       {% endif %}
@@ -47,7 +47,7 @@
           data: {
               labels: {{ chart_labels|safe }},
               datasets: [{
-                  label: 'Foot Traffic',
+                  label: 'Avg Daily Foot Traffic By Month',
                   data: {{ chart_data }},
                   backgroundColor: 'rgba(203, 166, 247, 0.2)',
                   borderColor: 'rgba(203, 166, 247, 1)',
