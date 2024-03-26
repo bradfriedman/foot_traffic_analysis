@@ -1,3 +1,4 @@
+from datetime import date
 import json
 import logging
 from statistics import median
@@ -6,6 +7,7 @@ from django.conf import settings
 from django.db.models import Avg, StdDev, Variance
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
 
 from fuzzywuzzy import fuzz, process
 
@@ -16,6 +18,7 @@ from langchain_core.output_parsers.string import StrOutputParser
 from langchain_openai import ChatOpenAI
 import pandas as pd
 
+from .utils.analysis import calculate_z_scores, get_anomalies
 from .utils.enums import LLMChoice
 from .utils.llms import get_llm
 
@@ -35,6 +38,7 @@ class AnalysisResult:
     self.monthly_averages = monthly_averages
 
 
+@csrf_exempt
 def analyze_view(request) -> HttpResponse:
   if request.method == 'POST':
     form = UserQueryForm(request.POST)
@@ -190,8 +194,9 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
   # Calculate monthly averages
   monthly_averages = get_monthly_averages(filtered_ft)
   monthly_averages_str = '\n'.join(
-      monthly_averages.to_string(header=False).split('\n')[:-1])
-  print(f"Monthly averages:\n{monthly_averages_str}")
+      f"{idx.strftime('%B %Y')} {val:.1f}" for idx, val in monthly_averages.items()
+  )
+  print(f"Daily averages by month:\n{monthly_averages_str}")
 
   # *** Trend Analysis ***
   parser = StrOutputParser()
@@ -215,6 +220,15 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
   print(f"Output of trend analysis chain is\n\n{trend_summary}\n\n")
 
   # *** Anomaly Detection ***
+  # Get anomalies with a Z-score threshold that can be configured
+  z_score_dict = calculate_z_scores(filtered_ft)
+  anomalies_dict = get_anomalies(z_score_dict, threshold=2.0)
+  anomalies_str = '\n'.join(
+      f"{date.strftime('%B %d, %Y')}: {ft} (Z-score: {z_score:.2f})"
+      for date, (ft, z_score) in anomalies_dict.items()
+  )
+  print(f"Anomalies:\n{anomalies_str}")
+
   parser = StrOutputParser()
   anomaly_detection_prompt = PromptTemplate.from_template(
       template=prompts.ANOMALY_DETECTION_PROMPT,
@@ -230,6 +244,7 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
           "ft_median": ft_median,
           "ft_stddev": ft_stddev,
           "ft_variance": ft_variance,
+          "daily_anomalies": anomalies_str,
       }
   )
   print(f"Output of anomaly detection chain is:\n\n{anomalies_summary}\n\n")

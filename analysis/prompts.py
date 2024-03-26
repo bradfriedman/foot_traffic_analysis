@@ -26,15 +26,13 @@ Think step-by-step in determining your answer. Think especially
 carefully about the overall trend from the earliest data point to the
 latest. If the trend line is generally up, down, or flat, say so. You
 can also comment on the severity of the trend, if it's consistent or
-fluctuating, and if there are any significant peaks or troughs. When
-considering overall trend, think in terms of monthly averages, not
-individual daily data points.
+fluctuating, and if there are any significant peaks or troughs.
 
 The mean foot traffic for this data is {ft_mean}, the median is
 {ft_median}, the standard deviation is {ft_stddev}, and the variance
 is {ft_variance}.
 
-The monthly averages of foot traffic, in ascending order of date, are:
+The daily averages of foot traffic by month, in ascending order of date, are:
 {monthly_averages}
 Use this information to help you analyze the overall trend.
 
@@ -46,12 +44,12 @@ The data to analyze is here:
 
 ANOMALY_DETECTION_PROMPT = '''
 Please analyze the following foot traffic data and identify any
-anomalies or outliers. Consider anomalies at the weekly or monthly level,
-as well as seasonal. Respond with the relevant weeks, months, and/or seasons,
-along with a brief explanation of why they are considered anomalies. To help
-your analysis, the mean foot traffic over this dataset is {ft_mean}, the median
-is {ft_median}, the standard deviation is {ft_stddev}, and the variance is
-{ft_variance}.
+anomalies or outliers. Consider anomalies at the daily, weekly, or monthly
+level, as well as seasonal. Respond with the relevant days, weeks, months,
+and/or seasons, along with a brief explanation of why they are considered
+anomalies. To help your analysis, the mean foot traffic over this dataset is
+{ft_mean}, the median is {ft_median}, the standard deviation is {ft_stddev},
+and the variance is {ft_variance}.
 
 Be specific with your anomaly explanations, including qualitative and
 quantitative analyses. Consider reasons why the anomalies might have
@@ -60,7 +58,8 @@ there was a natural disaster, a holiday, or a special event that might have
 caused it. Also consider the location. For example, if the shopping center is
 in Florida, you might consider the impact of hurricane season or peak tourism
 season on foot traffic. Don't guess at a generic reason, like local events or
-bad weather, without evidence. Definitely feel free to attribute anomalies to
+bad weather, without evidence. Promotional events or sales are also not valid
+explanations. Definitely feel free to attribute anomalies to
 holidays, high/low seasons, or other known events.
 
 The data to analyze is here:
@@ -68,6 +67,13 @@ The data to analyze is here:
 <data>
 {data_str}
 </data>
+
+To help with your analysis, here are some days that have Z-scores with high
+absolute values. Ignore individual days that are not listed here.
+
+<anomalies>
+{daily_anomalies}
+</anomalies>
 '''
 
 INSIGHTS_GENERATION_PROMPT = '''
@@ -77,7 +83,8 @@ insights and findings. Use Markdown to format your response nicely.
 
 You should simply provide the information, commenting only with working
 theories or hypotheses. Do not give any preamble about what you are
-or are not capable of inferring given the data.
+or are not capable of inferring given the data. DO NOT mention what you
+would need to know to make a better analysis. Just provide the insights.
 
 Be sure to mention the earliest and latest date in the data, so we have
 context of the time range in question. The earliest date is {earliest_date}
@@ -120,6 +127,10 @@ and holidays. The management should continue to monitor these
 trends and anomalies to optimize their operations and marketing
 strategies.
 </example>
+
+It's important that you DO NOT guess at the reasons for anomalous
+data. For example, special events and promotions are NOT valid
+explanations.
 
 Imitating the overall style and level of detail in the above example,
 please generate your insights from this data:
