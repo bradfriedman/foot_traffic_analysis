@@ -18,6 +18,8 @@ import dj_database_url
 from dotenv import load_dotenv
 load_dotenv()
 
+IS_PRODUCTION = os.getenv('PRODUCTION', 'False') == 'True'
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = os.path.join(BASE_DIR, 'analysis', 'data')
@@ -32,19 +34,7 @@ SECRET_KEY = 'django-insecure-s+%^$1_^=b&$_2+=^#ob5w03sx5x5uiphi*vqz&!6hy!wk18s9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# The `DYNO` env var is set on Heroku CI, but it's not a real Heroku app, so we have to
-# also explicitly exclude CI:
-# https://devcenter.heroku.com/articles/heroku-ci#immutable-environment-variables
-IS_HEROKU_APP = "DYNO" in os.environ and not "CI" in os.environ
-
-# On Heroku, it's safe to use a wildcard for `ALLOWED_HOSTS``, since the Heroku router performs
-# validation of the Host header in the incoming HTTP request. On other platforms you may need
-# to list the expected hostnames explicitly to prevent HTTP Host header attacks. See:
-# https://docs.djangoproject.com/en/5.0/ref/settings/#std-setting-ALLOWED_HOSTS
-if IS_HEROKU_APP:
-  ALLOWED_HOSTS = ["*"]
-else:
-  ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -59,12 +49,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 ]
 
-if IS_HEROKU_APP:
-  # Use WhiteNoise's runserver implementation instead of the Django default
-  INSTALLED_APPS = [
-      'whitenoise.runserver_nostatic',
-  ] + INSTALLED_APPS
-
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -74,11 +58,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
-if IS_HEROKU_APP:
-  MIDDLEWARE = [
-      "whitenoise.middleware.WhiteNoiseMiddleware",
-  ] + MIDDLEWARE
 
 ROOT_URLCONF = 'foot_traffic_analysis.urls'
 
@@ -110,21 +89,16 @@ WSGI_APPLICATION = 'foot_traffic_analysis.wsgi.application'
 #         "NAME": BASE_DIR / "db.sqlite3",
 #     }
 # }
-if IS_HEROKU_APP:
-  DATABASES = {
-      'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'), conn_max_age=600)
-  }
-else:
-  DATABASES = {
-      'default': {
-          'ENGINE': 'django.db.backends.postgresql',
-          'NAME': 'analysis_foottraffic',
-          'USER': 'placer',
-          'PASSWORD': 'placerpw123!',
-          'HOST': 'localhost',
-          'PORT': '5432',
-      }
-  }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'analysis_foottraffic',
+        'USER': 'placer',
+        'PASSWORD': 'placerpw123!',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
+}
 
 
 # Password validation

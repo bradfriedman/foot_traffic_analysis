@@ -99,7 +99,7 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
   shopping_center = output.get("result", [{}])[0].get("shopping_center")
   city = output.get("result", [{}, {}])[1].get("city")
 
-  print(f"Shopping center: {shopping_center}, City: {city}")
+  logger.info(f"Shopping center: {shopping_center}, City: {city}")
 
   shopping_center_names = set(
       FootTraffic.objects.values_list('name', flat=True))
@@ -111,14 +111,14 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
 
     # Print the ratio scores for each possible shopping center name that exceeds MIN_RATIO
     if shopping_center_matches:
-      print("Shopping Center Name Ratio Scores:")
+      logger.info("Shopping Center Name Ratio Scores:")
       for m in shopping_center_matches:
-        print(f"{m[0]}: {m[1]}")
+        logger.info(f"{m[0]}: {m[1]}")
 
       # Set shopping center to the best match
       shopping_center = matched_names[0]
     else:
-      print("NO SHOPPING CENTERS FOUND")
+      logger.info("NO SHOPPING CENTERS FOUND")
       return AnalysisResult(
           f"No shopping center found with the name {shopping_center}. Please try again.")
   else:
@@ -136,20 +136,20 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
 
     # Print the ratio scores for each possible city exceeds MIN_RATIO
     if city_matches:
-      print("City Ratio Scores:")
+      logger.info("City Ratio Scores:")
       for m in city_matches:
-        print(f"{m[0]}: {m[1]}")
+        logger.info(f"{m[0]}: {m[1]}")
 
       # Set city to the best match
       city = matched_cities[0]
     else:
       # If a city was extracted but does not match any in the database,
       # short circuit and return an error message
-      print("NO CITIES FOUND")
+      logger.info("NO CITIES FOUND")
       return AnalysisResult(
           f"Could not recognize the city {city}. Please try again.")
 
-  print(f"Shopping center: {shopping_center}, City: {city}")
+  logger.info(f"Shopping center: {shopping_center}, City: {city}")
 
   # If not shopping center or city can be extracted, return an error message
   if not shopping_center and not city:
@@ -174,19 +174,19 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
   if multiple_locations:
     # For now, return an error message if there are multiple locations asking
     # the user to specify the city
-    print("WARNING: Multiple locations with the shopping center name found. ",
-          f"({', '.join(cities_represented)})")
+    logger.info("WARNING: Multiple locations with the shopping center name found. ",
+                f"({', '.join(cities_represented)})")
     return AnalysisResult(
         "Multiple locations with the shopping center name "
         f"{shopping_center} found ({', '.join(cities_represented)}). "
         "Please specify the city."
     )
   else:
-    print("Only one location with the shopping center name found.")
+    logger.info("Only one location with the shopping center name found.")
 
   filtered_ft_str = '\n'.join(str(ft) for ft in filtered_ft)
 
-  print(
+  logger.info(
       f"Filtered FootTraffic string starts with:\n\n{'\n'.join(filtered_ft_str.split('\n')[:5])}\n\n")
 
   # Collect some mathematical data to augment prompts
@@ -194,15 +194,15 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
   ft_median = median(filtered_ft.values_list('ft', flat=True))
   ft_stddev = filtered_ft.aggregate(StdDev('ft'))['ft__stddev']
 
-  print(f"Mean: {ft_mean}, Median: {ft_median}, "
-        f"StdDev: {ft_stddev}\n")
+  logger.info(f"Mean: {ft_mean}, Median: {ft_median}, "
+              f"StdDev: {ft_stddev}\n")
 
   # Calculate monthly averages
   monthly_averages = get_monthly_averages(filtered_ft)
   monthly_averages_str = '\n'.join(
       f"{idx.strftime('%B %Y')} {val:.1f}" for idx, val in monthly_averages.items()
   )
-  print(f"Daily averages by month:\n{monthly_averages_str}\n")
+  logger.info(f"Daily averages by month:\n{monthly_averages_str}\n")
 
   # Calculate weekly averages
   weekly_averages = filtered_ft.annotate(
@@ -218,7 +218,7 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
           week['avg_ft']:.1f}"
       for week in weekly_averages
   )
-  print(f"Weekly averages:\n{weekly_averages_str}\n")
+  logger.info(f"Weekly averages:\n{weekly_averages_str}\n")
 
   # Calculate day of the week averages
   day_of_week_averages = filtered_ft.values('day__week_day').annotate(
@@ -227,7 +227,7 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
       f"{django_weekday_to_str(day['day__week_day'])}: "
       f"{day['ft__avg']:.1f}" for day in day_of_week_averages
   )
-  print(f"Day of the week averages:\n{day_of_week_averages_str}\n")
+  logger.info(f"Day of the week averages:\n{day_of_week_averages_str}\n")
 
   # *** Trend Analysis ***
   parser = StrOutputParser()
@@ -237,7 +237,7 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
 
   chain = trend_analysis_prompt | llm | parser
   trend_input = filtered_ft_str
-  # print(f"Trend input: {trend_input}")
+  # logger.info(f"Trend input: {trend_input}")
   trend_summary = chain.invoke(
       {
           "data_str": trend_input,
@@ -249,7 +249,7 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
           "day_of_week_averages": day_of_week_averages_str,
       }
   )
-  print(f"Output of trend analysis chain is\n\n{trend_summary}\n\n")
+  logger.info(f"Output of trend analysis chain is\n\n{trend_summary}\n\n")
 
   # *** Anomaly Detection ***
   Z_THRESHOLD = 2.0
@@ -261,7 +261,7 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
       f"{date.strftime('%B %d, %Y')}: {ft}"
       for date, (ft, z_score) in daily_anomalies_dict.items()
   )
-  print(f"Daily Anomalies:\n{daily_anomalies_str}\n")
+  logger.info(f"Daily Anomalies:\n{daily_anomalies_str}\n")
 
   # Get weekly anomalies with the same Z-score threshold
   z_score_dict = calculate_weekly_z_scores(weekly_averages)
@@ -270,7 +270,7 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
       f"{iso_to_gregorian(year, week).strftime('%B %d, %Y')}: {ft}"
       for (year, week), (ft, z_score) in weekly_anomalies_dict.items()
   )
-  print(f"Weekly Anomalies:\n{weekly_anomalies_str}\n")
+  logger.info(f"Weekly Anomalies:\n{weekly_anomalies_str}\n")
 
   parser = StrOutputParser()
   anomaly_detection_prompt = PromptTemplate.from_template(
@@ -279,7 +279,7 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
 
   chain = anomaly_detection_prompt | llm | parser
   anomaly_input = filtered_ft_str
-  # print(f"Anomaly input: {anomaly_input}")
+  # logger.info(f"Anomaly input: {anomaly_input}")
   anomalies_summary = chain.invoke(
       {
           "data_str": anomaly_input,
@@ -290,7 +290,8 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
           "weekly_anomalies": weekly_anomalies_str,
       }
   )
-  print(f"Output of anomaly detection chain is:\n\n{anomalies_summary}\n\n")
+  logger.info(f"Output of anomaly detection chain is:\n\n{
+              anomalies_summary}\n\n")
 
   # *** Insights Generation ***
   parser = StrOutputParser()
@@ -312,7 +313,7 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
           "latest_date": latest_date.strftime("%b %d, %Y"),
       }
   )
-  print(f"Output of insights generation chain is:\n\n{output}\n\n")
+  logger.info(f"Output of insights generation chain is:\n\n{output}\n\n")
 
   return AnalysisResult(output, monthly_averages)
 

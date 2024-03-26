@@ -1,7 +1,11 @@
 import datetime
+import logging
+
 from django.db.models.query import QuerySet
 import numpy as np
 from scipy.stats import zscore
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_daily_z_scores(queryset: QuerySet) -> dict:
@@ -17,15 +21,15 @@ def calculate_daily_z_scores(queryset: QuerySet) -> dict:
   ft_values = queryset.values_list('ft', flat=True)
   ft_array = np.array(list(ft_values))
   z_scores = zscore(ft_array)
-  # print("Z SCORES = ", z_scores)
+  logger.debug(logger.debug("Z SCORES = ", z_scores))
 
   for i, z_score in enumerate(z_scores):
     row = queryset[i]
-    print("Row:", row)
-    print("Z-score:", z_score)
+    logger.debug("Row:", row)
+    logger.debug("Z-score:", z_score)
 
-  # print("Mean Z-score:", np.mean(z_scores))
-  # print("Standard Deviation of Z-scores:", np.std(z_scores))
+  logger.debug("Mean Z-score:", np.mean(z_scores))
+  logger.debug("Standard Deviation of Z-scores:", np.std(z_scores))
   z_score_dict = {}
   for i, z_score in enumerate(z_scores):
     row = queryset[i]
@@ -54,13 +58,14 @@ def calculate_weekly_z_scores(queryset: QuerySet) -> dict:
   z_score_dict = {}
   for i, z_score in enumerate(z_scores):
     row = queryset[i]
-    print("Row:", row)
-    print("Z-score:", z_score)
+    logger.debug("Row:", row)
+    logger.debug("Z-score:", z_score)
     ft = row['avg_ft']
     iso_year = row['year']
     iso_week = row['week']
     z_score_dict[(iso_year, iso_week)] = (ft, z_score)
-    print(f"{iso_to_gregorian(iso_year, iso_week)}: {ft} (Z-score: {z_score})")
+    logger.debug(f"{iso_to_gregorian(iso_year, iso_week)}: {
+                 ft} (Z-score: {z_score})")
   return z_score_dict
 
 
