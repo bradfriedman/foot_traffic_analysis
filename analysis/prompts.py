@@ -32,6 +32,9 @@ fluctuating, and if there are any significant peaks or troughs.
 The mean foot traffic for this data is {ft_mean}, the median is
 {ft_median}, the standard deviation is {ft_stddev}.
 
+You should include overall trends, trends by month, trends by calendar week,
+and trends by day of the week. Data to help your analysis is below.
+
 The daily averages of foot traffic by month, in ascending order of date, are:
 {monthly_averages}
 
