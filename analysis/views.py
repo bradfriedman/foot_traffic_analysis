@@ -1,10 +1,10 @@
-from datetime import date
 import json
 import logging
 from statistics import median
 
 from django.conf import settings
-from django.db.models import Avg, StdDev, Variance
+from django.db.models import Avg, StdDev
+from django.db.models.functions import ExtractWeek, ExtractYear
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
@@ -13,12 +13,16 @@ from fuzzywuzzy import fuzz, process
 
 from langchain.output_parsers import XMLOutputParser
 from langchain.prompts import PromptTemplate
-from langchain_anthropic import ChatAnthropic
 from langchain_core.output_parsers.string import StrOutputParser
-from langchain_openai import ChatOpenAI
 import pandas as pd
 
-from .utils.analysis import calculate_z_scores, get_anomalies
+from .utils.analysis import (
+    calculate_daily_z_scores,
+    calculate_weekly_z_scores,
+    get_anomalies,
+    django_weekday_to_str,
+    iso_to_gregorian
+)
 from .utils.enums import LLMChoice
 from .utils.llms import get_llm
 
@@ -189,14 +193,41 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
   ft_mean = filtered_ft.aggregate(Avg('ft'))['ft__avg']
   ft_median = median(filtered_ft.values_list('ft', flat=True))
   ft_stddev = filtered_ft.aggregate(StdDev('ft'))['ft__stddev']
-  ft_variance = filtered_ft.aggregate(Variance('ft'))['ft__variance']
+
+  print(f"Mean: {ft_mean}, Median: {ft_median}, "
+        f"StdDev: {ft_stddev}\n")
 
   # Calculate monthly averages
   monthly_averages = get_monthly_averages(filtered_ft)
   monthly_averages_str = '\n'.join(
       f"{idx.strftime('%B %Y')} {val:.1f}" for idx, val in monthly_averages.items()
   )
-  print(f"Daily averages by month:\n{monthly_averages_str}")
+  print(f"Daily averages by month:\n{monthly_averages_str}\n")
+
+  # Calculate weekly averages
+  weekly_averages = filtered_ft.annotate(
+      year=ExtractYear('day'),
+      week=ExtractWeek('day')
+  ).values(
+      'year', 'week'
+  ).annotate(
+      avg_ft=Avg('ft')
+  ).order_by('year', 'week')
+  weekly_averages_str = '\n'.join(
+      f"Week of {iso_to_gregorian(week['year'], week['week']).strftime('%B %d, %Y')}: {
+          week['avg_ft']:.1f}"
+      for week in weekly_averages
+  )
+  print(f"Weekly averages:\n{weekly_averages_str}\n")
+
+  # Calculate day of the week averages
+  day_of_week_averages = filtered_ft.values('day__week_day').annotate(
+      Avg('ft')).order_by('day__week_day')
+  day_of_week_averages_str = '\n'.join(
+      f"{django_weekday_to_str(day['day__week_day'])}: "
+      f"{day['ft__avg']:.1f}" for day in day_of_week_averages
+  )
+  print(f"Day of the week averages:\n{day_of_week_averages_str}\n")
 
   # *** Trend Analysis ***
   parser = StrOutputParser()
@@ -213,21 +244,33 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
           "ft_mean": ft_mean,
           "ft_median": ft_median,
           "ft_stddev": ft_stddev,
-          "ft_variance": ft_variance,
           "monthly_averages": monthly_averages_str,
+          "weekly_averages": weekly_averages_str,
+          "day_of_week_averages": day_of_week_averages_str,
       }
   )
   print(f"Output of trend analysis chain is\n\n{trend_summary}\n\n")
 
   # *** Anomaly Detection ***
-  # Get anomalies with a Z-score threshold that can be configured
-  z_score_dict = calculate_z_scores(filtered_ft)
-  anomalies_dict = get_anomalies(z_score_dict, threshold=2.0)
-  anomalies_str = '\n'.join(
-      f"{date.strftime('%B %d, %Y')}: {ft} (Z-score: {z_score:.2f})"
-      for date, (ft, z_score) in anomalies_dict.items()
+  Z_THRESHOLD = 2.0
+
+  # Get daily anomalies with a Z-score threshold that can be configured
+  z_score_dict = calculate_daily_z_scores(filtered_ft)
+  daily_anomalies_dict = get_anomalies(z_score_dict, threshold=Z_THRESHOLD)
+  daily_anomalies_str = '\n'.join(
+      f"{date.strftime('%B %d, %Y')}: {ft}"
+      for date, (ft, z_score) in daily_anomalies_dict.items()
   )
-  print(f"Anomalies:\n{anomalies_str}")
+  print(f"Daily Anomalies:\n{daily_anomalies_str}\n")
+
+  # Get weekly anomalies with the same Z-score threshold
+  z_score_dict = calculate_weekly_z_scores(weekly_averages)
+  weekly_anomalies_dict = get_anomalies(z_score_dict, threshold=Z_THRESHOLD)
+  weekly_anomalies_str = '\n'.join(
+      f"{iso_to_gregorian(year, week).strftime('%B %d, %Y')}: {ft}"
+      for (year, week), (ft, z_score) in weekly_anomalies_dict.items()
+  )
+  print(f"Weekly Anomalies:\n{weekly_anomalies_str}\n")
 
   parser = StrOutputParser()
   anomaly_detection_prompt = PromptTemplate.from_template(
@@ -243,8 +286,8 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
           "ft_mean": ft_mean,
           "ft_median": ft_median,
           "ft_stddev": ft_stddev,
-          "ft_variance": ft_variance,
-          "daily_anomalies": anomalies_str,
+          "daily_anomalies": daily_anomalies_str,
+          "weekly_anomalies": weekly_anomalies_str,
       }
   )
   print(f"Output of anomaly detection chain is:\n\n{anomalies_summary}\n\n")
