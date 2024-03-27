@@ -101,30 +101,6 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
 
   logger.info(f"Shopping center: {shopping_center}, City: {city}")
 
-  shopping_center_names = set(
-      FootTraffic.objects.values_list('name', flat=True))
-
-  if shopping_center:
-    shopping_center_matches = process.extractBests(
-        shopping_center, shopping_center_names, scorer=fuzz.ratio, score_cutoff=settings.MIN_RATIO)
-    matched_names = [m[0] for m in shopping_center_matches]
-
-    # Print the ratio scores for each possible shopping center name that exceeds MIN_RATIO
-    if shopping_center_matches:
-      logger.info("Shopping Center Name Ratio Scores:")
-      for m in shopping_center_matches:
-        logger.info(f"{m[0]}: {m[1]}")
-
-      # Set shopping center to the best match
-      shopping_center = matched_names[0]
-    else:
-      logger.info("NO SHOPPING CENTERS FOUND")
-      return AnalysisResult(
-          f"No shopping center found with the name {shopping_center}. Please try again.")
-  else:
-    # If no shopping center was extracted, return an error message
-    return AnalysisResult("No shopping center could be extracted from the user query. Please try again.")
-
   city_names = set(
       FootTraffic.objects.values_list('city', flat=True)
   )
@@ -148,6 +124,39 @@ def run_analysis(query: str, llm_choice: LLMChoice = LLMChoice.CHATGPT45) -> Ana
       logger.info("NO CITIES FOUND")
       return AnalysisResult(
           f"Could not recognize the city {city}. Please try again.")
+
+  if city:
+    shopping_center_names = set(
+        FootTraffic.objects.filter(city=city).values_list('name', flat=True))
+  else:
+    shopping_center_names = set(
+        FootTraffic.objects.values_list('name', flat=True))
+
+  if shopping_center:
+    shopping_center_matches = process.extractBests(
+        shopping_center, shopping_center_names, scorer=fuzz.ratio, score_cutoff=settings.MIN_RATIO)
+    matched_names = [m[0] for m in shopping_center_matches]
+
+    # Print the ratio scores for each possible shopping center name that exceeds MIN_RATIO
+    if shopping_center_matches:
+      logger.info("Shopping Center Name Ratio Scores:")
+      for m in shopping_center_matches:
+        logger.info(f"{m[0]}: {m[1]}")
+
+      # Set shopping center to the best match
+      shopping_center = matched_names[0]
+    else:
+      logger.info("NO SHOPPING CENTERS FOUND")
+      if city:
+        return AnalysisResult(
+            f"No shopping center found with the name {shopping_center} "
+            f"in {city}. Please try again.")
+      else:
+        return AnalysisResult(
+            f"No shopping center found with the name {shopping_center}. Please try again.")
+  else:
+    # If no shopping center was extracted, return an error message
+    return AnalysisResult("No shopping center could be extracted from the user query. Please try again.")
 
   logger.info(f"Shopping center: {shopping_center}, City: {city}")
 
